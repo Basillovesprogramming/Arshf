@@ -2,6 +2,8 @@ import os
 import sqlite3
 import datetime
 import logging
+import threading
+from flask import Flask
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
 from google import genai
@@ -105,6 +107,16 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     await update.message.reply_text(reply_text)
 
+app = Flask(__name__)
+
+@app.route("/")
+def health_check():
+    return "Bot is running"
+
+def run_flask():
+    port = int(os.environ.get("PORT", 8080))
+    app.run(host="0.0.0.0", port=port)
+
 def main() -> None:
     """Start the bot."""
     # Initialize the database
@@ -120,8 +132,11 @@ def main() -> None:
     # Message handler (for any text message that isn't a command)
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
+    # Start Flask app in a background thread
+    threading.Thread(target=run_flask, daemon=True).start()
+
     # Run the bot until the user presses Ctrl-C
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
